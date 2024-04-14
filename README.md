@@ -1,0 +1,1 @@
+# signate_apple_moving_forecast
