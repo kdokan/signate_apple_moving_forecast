@@ -60,6 +60,9 @@ def make_forecast_dataflame(data_forecast, data_forecast_close_day):
     data_forecast = data_forecast.sort_values(by = "ds")
     return data_forecast
 
+def chk_concat_forecast_n_closing_forecast(data_forecast, data):
+    assert len(data_forecast) == len(data), "結合がうまくいっていません"
+
 
 # %%
 data_train = pd.read_csv("../data/train.csv")
@@ -68,6 +71,8 @@ data = pd.concat([data_train, data_test], ignore_index=True)
 
 # データの前処理
 data = ds_column_cleaning(data)
+# 古いdsで料金区分カラムの欠損が見られるため、欠損のないdsに絞る。データポイント的にも問題なし
+data = data[data["ds"] >= "2012-04-01"]
 
 # prophet用にholiday dataframe作成する
 data_holiday = make_holiday_dataframe_for_prophet(data)
@@ -82,6 +87,7 @@ SELECT_COLUMNS = []
 model, data_forecast = run_prophet(data_for_model, data_holiday, START_TEST_DATE, SELECT_COLUMNS)
 data_forecast_close_day = forecast_close_day(data)
 data_forecast = make_forecast_dataflame(data_forecast, data_forecast_close_day)
+chk_concat_forecast_n_closing_forecast(data_forecast, data)
 
 
 #%%
@@ -91,5 +97,8 @@ fig1 = model.plot(data_forecast, figsize=(20, 12)) # 結果のプロット#1
 fig2 = model.plot_components(data_forecast) # 結果のプロット#2
 
 
+
+# %%
+data_for_model[data_for_model["price_am"] == -1]
 
 # %%
