@@ -2,6 +2,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from prophet import Prophet
+from datetime import datetime
 
 #%%
 # prophetに向けた日付カラムの処理
@@ -63,6 +64,10 @@ def make_forecast_dataflame(data_forecast, data_forecast_close_day):
 def chk_concat_forecast_n_closing_forecast(data_forecast, data):
     assert len(data_forecast) == len(data), "結合がうまくいっていません"
 
+def chk_data_for_model(data):
+    assert len(data[data["price_am"] == -1]) == 0, "price_amの欠損値処理をしてください"
+    assert len(data[data["price_pm"] == -1]) == 0, "price_pmの欠損値処理をしてください"
+
 
 # %%
 data_train = pd.read_csv("../data/train.csv")
@@ -79,16 +84,21 @@ data_holiday = make_holiday_dataframe_for_prophet(data)
 
 # 休業日は引越し数が必ず0になるため
 data_for_model = data[data["close"] == 0]
+chk_data_for_model(data_for_model)
+
 
 #%%
 # prophet実装 × 予測
 START_TEST_DATE = "2016-04-01"
-SELECT_COLUMNS = []
+SELECT_COLUMNS = ["price_am","price_pm", "client"]
 model, data_forecast = run_prophet(data_for_model, data_holiday, START_TEST_DATE, SELECT_COLUMNS)
 data_forecast_close_day = forecast_close_day(data)
 data_forecast = make_forecast_dataflame(data_forecast, data_forecast_close_day)
 chk_concat_forecast_n_closing_forecast(data_forecast, data)
 
+# 投稿用データ作成
+data_forecast = data_forecast[data_forecast["ds"] >= START_TEST_DATE]
+data_forecast[["ds","yhat"]].to_csv("../results/submit_file_{}.csv".format(datetime.today()), index=False, header=False)
 
 #%%
 fig1 = model.plot(data_forecast, figsize=(20, 12)) # 結果のプロット#1
@@ -96,9 +106,5 @@ fig1 = model.plot(data_forecast, figsize=(20, 12)) # 結果のプロット#1
 #%%
 fig2 = model.plot_components(data_forecast) # 結果のプロット#2
 
-
-
-# %%
-data_for_model[data_for_model["price_am"] == -1]
 
 # %%
