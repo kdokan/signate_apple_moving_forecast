@@ -68,6 +68,13 @@ def chk_data_for_model(data):
     assert len(data[data["price_am"] == -1]) == 0, "price_amの欠損値処理をしてください"
     assert len(data[data["price_pm"] == -1]) == 0, "price_pmの欠損値処理をしてください"
 
+# price_amとprice_pmを掛け合わせた変数を作成する
+def price_am_n_pm_feature_engineering(data):
+    data["price_am"] = data["price_am"] + 1
+    data["price_pm"] = data["price_pm"] + 1
+    data["price_am_n_pm"] = data["price_am"] * data["price_pm"]
+    return data
+
 
 # %%
 data_train = pd.read_csv("../data/train.csv")
@@ -76,6 +83,9 @@ data = pd.concat([data_train, data_test], ignore_index=True)
 
 # データの前処理
 data = ds_column_cleaning(data)
+data = price_am_n_pm_feature_engineering(data)
+
+#%%
 # 古いdsで料金区分カラムの欠損が見られるため、欠損のないdsに絞る。データポイント的にも問題なし
 data = data[data["ds"] >= "2012-04-01"]
 
@@ -86,25 +96,24 @@ data_holiday = make_holiday_dataframe_for_prophet(data)
 data_for_model = data[data["close"] == 0]
 chk_data_for_model(data_for_model)
 
-
 #%%
 # prophet実装 × 予測
 START_TEST_DATE = "2016-04-01"
-SELECT_COLUMNS = ["price_am","price_pm", "client"]
+SELECT_COLUMNS = ["price_am_n_pm","client"]
 model, data_forecast = run_prophet(data_for_model, data_holiday, START_TEST_DATE, SELECT_COLUMNS)
 data_forecast_close_day = forecast_close_day(data)
 data_forecast = make_forecast_dataflame(data_forecast, data_forecast_close_day)
 chk_concat_forecast_n_closing_forecast(data_forecast, data)
-
-# 投稿用データ作成
-data_forecast = data_forecast[data_forecast["ds"] >= START_TEST_DATE]
-data_forecast[["ds","yhat"]].to_csv("../results/submit_file_{}.csv".format(datetime.today()), index=False, header=False)
 
 #%%
 fig1 = model.plot(data_forecast, figsize=(20, 12)) # 結果のプロット#1
 
 #%%
 fig2 = model.plot_components(data_forecast) # 結果のプロット#2
+
+# 投稿用データ作成
+data_forecast = data_forecast[data_forecast["ds"] >= START_TEST_DATE]
+data_forecast[["ds","yhat"]].to_csv("../results/submit_file_{}.csv".format(datetime.today()), index=False, header=False)
 
 
 # %%
